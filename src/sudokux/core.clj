@@ -2,36 +2,27 @@
 
 (defrecord XMatrix [columns rows solution])
 
-(defn clean-columns!
-  [columns rows target-rows]
-  (loop [columns columns, trows (seq target-rows)]
-    (if-let [[r & trows] trows]
-      (recur (reduce (fn [cols c] (assoc! cols c (disj (cols c) r)))
-		     columns (rows r)) trows)
-      columns)))
+(defn clean-row
+  [rows columns r]
+  (reduce #(assoc! %1 %2 (disj (%1 %2) r)) columns (rows r)))
   
 (defn remove-row
   "Remove a row in an xmat, adding it to the solution"
   [xmat row]
   (let [columns (transient (:columns xmat))
-	rows (transient (:rows xmat))
+	rows (:rows xmat)
 	target-columns (rows row)
-	target-rows (into #{} (mapcat columns target-columns))
-	columns (clean-columns! columns rows target-rows)
+	target-rows (reduce into (map columns target-columns))
+	columns (reduce (partial clean-row rows) columns target-rows)
 	columns (persistent! (reduce dissoc! columns target-columns))
-	rows (persistent! (reduce dissoc! rows target-rows))
 	solution (conj (:solution xmat) row)]
     (XMatrix. columns rows solution)))
-
-(defn find-small-column
-  [xmat]
-  (second (apply min-key #(count (second %)) (:columns xmat))))
 
 (defn solve-xc
   "Solve the exact cover problem on xmat"
   [xmat]
-  (if (seq (:columns xmat))
-    (let [rows (find-small-column xmat)]
+  (if-let [cols (seq (:columns xmat))]
+    (let [rows (second (apply min-key #(count (second %)) cols))]
       (some identity (for [r rows] (solve-xc (remove-row xmat r)))))
     (:solution xmat)))
 
