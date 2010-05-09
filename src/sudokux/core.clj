@@ -2,15 +2,13 @@
 
 (defrecord XMatrix [columns rows solution])
 
-(defn subtract
-  [set1 set2]
-  (reduce #(if (set2 %2) (disj %1 %2) %1) set1 set1))
-
 (defn clean-columns!
-  [columns target-rows dirty]
-  (reduce (fn [columns col]
-	    (assoc! columns col (subtract (columns col) target-rows)))
-	  columns dirty))
+  [columns rows target-rows]
+  (loop [columns columns, trows (seq target-rows)]
+    (if-let [[r & trows] trows]
+      (recur (reduce (fn [cols c] (assoc! cols c (disj (cols c) r)))
+		     columns (rows r)) trows)
+      columns)))
   
 (defn remove-row
   "Remove a row in an xmat, adding it to the solution"
@@ -19,10 +17,9 @@
 	rows (transient (:rows xmat))
 	target-columns (rows row)
 	target-rows (into #{} (mapcat columns target-columns))
-	dirty-columns (into #{} (mapcat rows target-rows))
-	rows (persistent! (reduce dissoc! rows target-rows))
-	columns (clean-columns! columns target-rows dirty-columns)
+	columns (clean-columns! columns rows target-rows)
 	columns (persistent! (reduce dissoc! columns target-columns))
+	rows (persistent! (reduce dissoc! rows target-rows))
 	solution (conj (:solution xmat) row)]
     (XMatrix. columns rows solution)))
 
