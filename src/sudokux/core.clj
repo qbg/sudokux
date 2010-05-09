@@ -2,42 +2,27 @@
 
 (defrecord XMatrix [columns rows solution])
 
-(defn filter-columns
-  "Remove all column entries in row from columns"
-  [columns row]
-  (reduce dissoc columns row))
+(defn subtract
+  [set1 set2]
+  (reduce #(if (set2 %2) (disj %1 %2) %1) set1 set1))
 
-(defn find-useless-rows
-  "Find all the rows to be disposed of"
-  [columns row]
-  (reduce into #{} (map columns row)))
-
-(defn clean-columns
-  "Remove all row entries in columns from rows in useless"
-  [columns rows useless]
-  (reduce (fn [columns row]
-	    (let [cols (rows row)]
-	      (reduce (fn [columns col]
-			(assoc columns col
-			       (disj (columns col) row)))
-		      columns
-		      cols)))
-	  columns
-	  useless))
-
-(defn filter-rows
-  "Remove useless rows from rows"
-  [rows useless]
-  (reduce dissoc rows useless))
-
+(defn clean-columns!
+  [columns target-rows dirty]
+  (reduce (fn [columns col]
+	    (assoc! columns col (subtract (columns col) target-rows)))
+	  columns dirty))
+  
 (defn remove-row
   "Remove a row in an xmat, adding it to the solution"
   [xmat row]
-  (let [row-ent ((:rows xmat) row)
-	useless (find-useless-rows (:columns xmat) row-ent)
-	columns (clean-columns (:columns xmat) (:rows xmat) useless)
-	columns (filter-columns columns row-ent)
-	rows (filter-rows (:rows xmat) useless)
+  (let [columns (transient (:columns xmat))
+	rows (transient (:rows xmat))
+	target-columns (rows row)
+	target-rows (into #{} (mapcat columns target-columns))
+	dirty-columns (into #{} (mapcat rows target-rows))
+	rows (persistent! (reduce dissoc! rows target-rows))
+	columns (clean-columns! columns target-rows dirty-columns)
+	columns (persistent! (reduce dissoc! columns target-columns))
 	solution (conj (:solution xmat) row)]
     (XMatrix. columns rows solution)))
 
@@ -66,15 +51,10 @@
 (defn transpose-map
   "Transpose a map of sets"
   [m]
-  (reduce (fn [target [row cols]]
-	    (reduce (fn [target col]
-		      (assoc target col
-			     (conj (target col #{})
-				   row)))
-		    target
-		    cols))
-	  {}
-	  m))
+  (loop [trans (transient {}), kvs (seq m)]
+    (if-let [[[k v] & kvs] kvs]
+      (recur (reduce #(assoc! %1 %2 (conj (%1 %2 #{}) k)) trans v) kvs)
+      (persistent! trans))))
 
 (defn build-sudoku-template
   []
@@ -132,19 +112,19 @@
 
 (def sample
      (XMatrix. {0 #{1 3}
-		1 #{2 4}
-		2 #{0 2}
-		3 #{1 3 5}
-		4 #{0 5}
-		5 #{0 2}
-		6 #{1 4 5}}
-	       {0 #{2 4 5}
-		1 #{0 3 6}
-		2 #{1 2 5}
-		3 #{0 3}
-		4 #{1 6}
-		5 #{3 4 6}}
-	       []))
+               1 #{2 4}
+               2 #{0 2}
+               3 #{1 3 5}
+               4 #{0 5}
+               5 #{0 2}
+               6 #{1 4 5}}
+              {0 #{2 4 5}
+               1 #{0 3 6}
+               2 #{1 2 5}
+               3 #{0 3}
+               4 #{1 6}
+               5 #{3 4 6}}
+              []))
 
 (def hard-board2
      [0 0 1 0 0 4 0 0 0
