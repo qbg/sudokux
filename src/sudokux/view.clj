@@ -1,12 +1,13 @@
 ;;;; The view for the game
 (ns sudokux.view
-  (:import [javax.swing JFrame JPanel JButton BoxLayout]
+  (:import [javax.swing JFrame JPanel JButton BoxLayout SwingUtilities]
 	   [java.awt GridLayout Dimension Color Font]
 	   [java.awt.event ActionListener])
   (:require [sudokux.model :as model]
 	    [sudokux.controller :as control]))
 
 (defn add-action-listener
+  "Add an action listener that dispatches f with args when invoked on object"
   [object f & args]
   (->>
    (reify
@@ -16,10 +17,11 @@
    (.addActionListener object)))
 
 (defn- button-clicked
+  "Called with n (the cell number) when clicked"
   [n]
   (control/increment-position (mod n 9) (int (/ n 9))))
 
-(def button-board
+(def board-buttons
      (vec
       (for [y (range 9), x (range 9)]
 	(let [but (JButton.)
@@ -31,40 +33,47 @@
 	  but))))
 
 (defn- update-buttons
-  "Display the board on the buttons"
+  "Display the buttons on the board"
   [board]
   (doseq [y (range 9), x (range 9)]
-    (.setText (button-board (+ x (* y 9)))
+    (.setText (board-buttons (+ x (* y 9)))
 	      (let [n (model/get-number board x y)]
 		(if (= n 0)
 		  ""
 		  (str n))))))
 
 (defn register-hook
+  "Add the update hook to the model"
   []
-  (add-watch model/current-board ::update #(update-buttons %4)))
+  (let [hook (fn [_ _ _ board]
+	       (SwingUtilities/invokeLater #(update-buttons board)))]
+    (add-watch model/current-board ::update hook)))
 
 (defn create-board-panel
+  "Create the panel that displays the board"
   []
   (register-hook)
   (let [panel (JPanel. (GridLayout. 9 9))]
-    (doseq [but button-board]
+    (doseq [but board-buttons]
       (.add panel but))
     (update-buttons @model/current-board)
     panel))
 
 (defn create-control-panel
+  "Create the control panel"
   []
-  (let [panel (JPanel. (GridLayout. 1 2))
+  (let [panel (JPanel. (GridLayout. 1 3))
 	solve (JButton. "Solve")
 	sample (JButton. "Sample")
 	new-but (JButton. "New")]
     (add-action-listener new-but #(control/new-game))
-    (.add panel new-but)
     (add-action-listener solve #(control/solve-game))
-    (.add panel solve)
     (add-action-listener sample #(control/load-sample))
-    (.add panel sample)
+    (doto panel
+      (.add new-but)
+      (.add solve)
+      (.add sample)
+      (.setMaximumSize (Dimension. 60000 60)))
     panel))
 
 (defn start
@@ -73,11 +82,11 @@
   (let [panel (JFrame. "SudokuX")
 	cpanel (create-control-panel)]
     (control/new-game)
-    (.setLayout panel (BoxLayout. (.getContentPane panel) BoxLayout/Y_AXIS))
-    (.add panel (create-board-panel))
-    (.add panel cpanel)
-    (.setMaximumSize cpanel (Dimension. 60000 60))
-    (.setSize panel 640 640)
-    (.show panel)
+    (doto panel
+      (.setLayout (BoxLayout. (.getContentPane panel) BoxLayout/Y_AXIS))
+      (.add (create-board-panel))
+      (.add cpanel)
+      (.setSize 640 640)
+      (.setResizable false)
+      .show)
     panel))
-

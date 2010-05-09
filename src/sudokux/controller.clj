@@ -19,6 +19,7 @@
   (defn solve-game
     "Give up and solve the game"
     []
+    ; Prevent running a bunch of solvers at once
     (when (= @solving false)
       (reset! solving true)
       (future
@@ -36,4 +37,4 @@
   "Load the hard board"
   []
   (dosync
-   (ref-set model/current-board core/hard-board2)))
+   (ref-set model/current-board core/wikipedia-sample)))

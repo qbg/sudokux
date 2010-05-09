@@ -3,7 +3,8 @@
 
 (defrecord XMatrix [columns rows solution])
 
-(defn- clean-row
+(defn- clean-row!
+  "Remove all entries of r from columns"
   [rows columns r]
   (reduce #(assoc! %1 %2 (disj (%1 %2) r)) columns (rows r)))
   
@@ -14,7 +15,7 @@
 	rows (:rows xmat)
 	target-columns (rows row)
 	target-rows (reduce into (map columns target-columns))
-	columns (reduce (partial clean-row rows) columns target-rows)
+	columns (reduce (partial clean-row! rows) columns target-rows)
 	columns (persistent! (reduce dissoc! columns target-columns))
 	solution (conj (:solution xmat) row)]
     (XMatrix. columns rows solution)))
@@ -46,6 +47,7 @@
       (persistent! trans))))
 
 (defn- build-sudoku-template
+  "Create a blank sudoku board xmat"
   []
   (let [drow (+ 0 (* 9 9))
 	dcol (+ drow (* 9 9))
@@ -67,6 +69,7 @@
 (def sudoku-template (build-sudoku-template))
 
 (defn board-to-xmat
+  "Create an xmat that represents board"
   [board]
   (let [sel (mapcat (fn [val base]
 		      (if (> val 0)
@@ -76,6 +79,7 @@
     (reduce remove-row sudoku-template sel)))
 
 (defn solution-to-board
+  "Create a board from the solution to solving xmat"
   [solution]
   (reduce (fn [board row]
 	    (let [pos (floor row 9)
@@ -155,3 +159,14 @@
       5 0 0 0 0 8 0 0 0
       0 0 0 0 1 0 0 7 0
       0 0 6 4 0 0 5 0 0])
+
+(def wikipedia-sample
+     [5 3 0 0 7 0 0 0 0
+      6 0 0 1 9 5 0 0 0
+      0 9 8 0 0 0 0 6 0
+      8 0 0 0 6 0 0 0 3
+      4 0 0 8 0 3 0 0 1
+      7 0 0 0 2 0 0 0 6
+      0 6 0 0 0 0 2 8 0
+      0 0 0 4 1 9 0 0 5
+      0 0 0 0 8 0 0 7 9])
