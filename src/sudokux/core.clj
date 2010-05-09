@@ -1,8 +1,9 @@
+;;;; The core sudoku solver & support code
 (ns sudokux.core)
 
 (defrecord XMatrix [columns rows solution])
 
-(defn clean-row
+(defn- clean-row
   [rows columns r]
   (reduce #(assoc! %1 %2 (disj (%1 %2) r)) columns (rows r)))
   
@@ -26,12 +27,12 @@
       (some identity (for [r rows] (solve-xc (remove-row xmat r)))))
     (:solution xmat)))
 
-(defn floor
+(defn- floor
   "Return the floor of dividing x by n"
   [x n]
   (int (/ x n)))
 
-(defn decode-box
+(defn- decode-box
   "Decode the box number for a position in sudoku"
   [x y]
   (+ (floor x 3) (* 3 (floor y 3))))
@@ -44,7 +45,7 @@
       (recur (reduce #(assoc! %1 %2 (conj (%1 %2 #{}) k)) trans v) kvs)
       (persistent! trans))))
 
-(defn build-sudoku-template
+(defn- build-sudoku-template
   []
   (let [drow (+ 0 (* 9 9))
 	dcol (+ drow (* 9 9))
@@ -83,13 +84,13 @@
 	  (vec (repeat 81 0))
 	  solution))
 
-(defn print-board
+(defn- print-board
   "Print a board"
   [board]
   (doseq [row (partition 9 board)]
     (println row)))
 	       
-(defn solve-sudoku
+(defn- solve-sudoku
   "Solve sudoku"
   [board]
   (-> board
@@ -97,6 +98,25 @@
       solve-xc
       solution-to-board
       print-board))
+
+(def board-regions
+     (concat (for [y (range 9)]
+	       (for [x (range 9)]
+		 (+ x (* y 9))))
+	     (for [x (range 9)]
+	       (for [y (range 9)]
+		 (+ x (* y 9))))
+	     (for [x (range 3) y (range 3)]
+	       (for [a (range 3) b (range 3)]
+		 (+ (+ (* x 3) a) (* (+ (* y 3) b) 9))))))
+
+(defn legal-board?
+  "Return true if the board is in a legal state"
+  [board]
+  (every? (fn [region]
+	    (let [vals (remove zero? (map board region))]
+	      (= (count vals) (count (distinct vals)))))
+	  board-regions))
 
 (def sample
      (XMatrix. {0 #{1 3}
@@ -135,4 +155,3 @@
       5 0 0 0 0 8 0 0 0
       0 0 0 0 1 0 0 7 0
       0 0 6 4 0 0 5 0 0])
-
