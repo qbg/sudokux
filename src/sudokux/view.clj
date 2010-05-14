@@ -1,6 +1,7 @@
 ;;;; The view for the game
 (ns sudokux.view
-  (:import [javax.swing JFrame JPanel JButton BoxLayout SwingUtilities]
+  (:import [javax.swing JFrame JPanel JButton BoxLayout SwingUtilities
+	    JMenu JMenuItem JMenuBar]
 	   [java.awt GridLayout Dimension Color Font]
 	   [java.awt.event ActionListener])
   (:require [sudokux.model :as model]
@@ -49,7 +50,7 @@
 	       (SwingUtilities/invokeLater #(update-buttons board)))]
     (add-watch model/current-board ::update hook)))
 
-(defn create-board-panel
+(defn create-board
   "Create the panel that displays the board"
   []
   (register-hook)
@@ -59,33 +60,44 @@
     (update-buttons @model/current-board)
     panel))
 
-(defn create-control-panel
-  "Create the control panel"
+(defn cons-menu
+  "Create a menu from the description in form titled title"
+  [title form]
+  (let [menu (JMenu. title)]
+    (doseq [e form]
+      (let [[element & args] e]
+	(case element
+	  :sep (.addSeparator menu)
+	  :menu (.add menu (cons-menu (first args) (rest args)))
+	  :item (.add menu (doto (JMenuItem. (first args))
+			     (add-action-listener (second args)))))))
+    menu))
+  
+(defn create-menubar
+  "Create the menubar"
   []
-  (let [panel (JPanel. (GridLayout. 1 3))
-	solve (JButton. "Solve")
-	sample (JButton. "Sample")
-	new-but (JButton. "New")]
-    (add-action-listener new-but #(control/new-game))
-    (add-action-listener solve #(control/solve-game))
-    (add-action-listener sample #(control/load-sample))
-    (doto panel
-      (.add new-but)
-      (.add solve)
-      (.add sample)
-      (.setMaximumSize (Dimension. 60000 60)))
-    panel))
+  (doto (JMenuBar.)
+    (.add (cons-menu
+	   "Puzzle"
+	   [[:item "New" control/new-game]
+	    [:menu
+	     "Load"
+	     [:item "Wikipedia Sample" #(control/load-sample :wiki)]
+	     [:item "Hard" #(control/load-sample :hard)]
+	     [:item "Difficult" #(control/load-sample :difficult)]
+	     [:sep]]
+	    [:sep]
+	    [:item "Solve" control/solve-game]]))))
 
 (defn start
   "Start up the game"
   []
-  (let [panel (JFrame. "SudokuX")
-	cpanel (create-control-panel)]
+  (let [panel (JFrame. "SudokuX")]
     (control/new-game)
     (doto panel
-      (.setLayout (BoxLayout. (.getContentPane panel) BoxLayout/Y_AXIS))
-      (.add (create-board-panel))
-      (.add cpanel)
+      (.setLayout (GridLayout. 1 1))
+      (.add (create-board))
+      (.setJMenuBar (create-menubar))
       (.setSize 640 640)
       (.setResizable false)
       .show)

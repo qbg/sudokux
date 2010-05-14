@@ -33,8 +33,13 @@
   (dosync
    (alter model/current-board model/increment-number x y)))
 
+(def samples
+     {:wiki core/wikipedia-sample,
+      :hard core/hard-board2,
+      :difficult core/death7})
+
 (defn load-sample
-  "Load the hard board"
-  []
+  "Load sample indicated by sample"
+  [sample]
   (dosync
-   (ref-set model/current-board core/wikipedia-sample)))
+   (ref-set model/current-board (samples sample))))
