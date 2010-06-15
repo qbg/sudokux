@@ -3,12 +3,6 @@
   (:require [sudokux.model :as model]
 	    [sudokux.core :as core]))
 
-(defn place-number
-  "Place v at (x, y) if it is legal to do so"
-  [v x y]
-  (dosync
-   (alter model/current-board model/place-number v x y)))
-
 (defn new-game
   "Create a new game"
   []

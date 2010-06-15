@@ -1,7 +1,7 @@
 (ns sudokux.simple-gui
-  (:import [java.awt EventQueue Color]
+  (:import [java.awt EventQueue Color Font Dimension]
 	   [java.awt.event ActionListener]
-	   [javax.swing JPanel]))
+	   [javax.swing JPanel JFrame]))
 
 (deftype Gui [model update-list names panel])
 
@@ -51,11 +51,19 @@
 
 (defn- set-prop
   [component prop val]
-  ((setters prop) component val))
+  (if-let [setter (setters prop)]
+    (if (sequential? val)
+      (apply setter component val)
+      (setter component val))
+    (throw (IllegalArgumentException.
+	    (format "Property %s not recognized" prop)))))
 
 (defn- get-prop
   [component prop]
-  ((getters prop) component))
+  (if-let [getter (getters prop)] 
+    (getter component)
+    (throw (IllegalArgumentException.
+	    (format "Property %s not recognized" prop)))))
 
 (defn get-property
   "From the component named name in gui, get the value corresponding to the prop
@@ -110,33 +118,36 @@ list of any update functions"
   [model form]
   (let [guiref (atom nil)
 	[root ul names] (build-component guiref form)]
-    (doto root
-      .pack
-      .show)
+    (.show root)
     (let [gui (reset! guiref (Gui. model ul names root))]
       (perform-updates gui)
       (install-watch gui)
       gui)))
 
-(defn- translate-color
+(defn- color
   [name]
   (cond
-   (symbol? name)
-   ({:black Color/black
-     :blue Color/blue
-     :cyan Color/cyan
-     :gray Color/gray
-     :green Color/green
-     :light-gray Color/lightGray
-     :magenta Color/magenta
-     :orange Color/orange
-     :pink Color/pink
-     :red Color/red
-     :white Color/white
+   (keyword? name)
+   ({:black Color/black, :blue Color/blue, :cyan Color/cyan, :gray Color/gray,
+     :green Color/green, :light-gray Color/lightGray, :magenta Color/magenta,
+     :orange Color/orange, :pink Color/pink, :red Color/red, :white Color/white,
      :yell Color/yellow}
     name
     Color/white)
    :else name))
+
+(defn- font
+  "Return the font with a given family, style, and size"
+  [family style size]
+  (let [family
+	({:dialog "Dialog", :dialog-input "DialogInput",
+	  :monospaced "Monospaced", :serif "Serif", :sans-serif "SansSerif"}
+	 family family)
+	style
+	({:plain Font/PLAIN, :bold Font/BOLD, :italic Font/ITALIC,
+	  :bold-italic (bit-or Font/BOLD Font/ITALIC)}
+	 style)]
+    (Font. family style size)))
 
 (defn- build-standard
   [ctor]
@@ -160,7 +171,15 @@ list of any update functions"
       (doseq [c children]
 	(.add panel c))
       [panel ul])))
-	  
+
+(defn- close-op
+  [op]
+  ({:nothing JFrame/DO_NOTHING_ON_CLOSE,
+    :hide JFrame/HIDE_ON_CLOSE,
+    :dispose JFrame/DISPOSE_ON_CLOSE,
+    :exit JFrame/EXIT_ON_CLOSE}
+   op))
+
 (def components
      {:window (build-standard #(javax.swing.JFrame.))
       :button (build-standard #(javax.swing.JButton.))
@@ -178,19 +197,10 @@ list of any update functions"
       :text #(.setText %1 %2)
       :rows #(.setRows %1 %2)
       :columns #(.setColumns %1 %2)
-      :background #(.setBackground %1 (translate-color %2))})
-
-(defn sample
-  []
-  (let [display #(:text %)
-	get-text #(get-property % :entry :text)
-	clicker #(dosync
-		  (alter (gui-model %) assoc :text (get-text %)))]
-    (make-gui
-     (ref {:text "world!"})
-     [:window [:title "Nice"]
-      [:grid [:layout [:rows 2 :columns 2]]
-       [:label [:text "Hello,"]]
-       [:label [:text display]]
-       [:text [:text "Fill me" :name :entry]]
-       [:button [:text "Click me!" :action clicker]]]])))
+      :background #(.setBackground %1 (color %2))
+      :size #(.setSize %1 %2 %3)
+      :resizable? #(.setResizable %1 %2)
+      :font #(.setFont %1 (font %2 %3 %4))
+      :minimum-size #(.setMinimumSize %1 (Dimension. %2 %3))
+      :maximum-size #(.setMaximumSize %1 (Dimension. %2 %3))
+      :close-operation #(.setDefaultCloseOperation %1 (close-op %2))})

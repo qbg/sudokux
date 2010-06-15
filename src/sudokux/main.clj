@@ -6,5 +6,5 @@
 
 (defn -main
   []
-  (let [jframe (view/start)]
-    (.setDefaultCloseOperation jframe JFrame/EXIT_ON_CLOSE)))
+  (view/start true))
+
